@@ -1,0 +1,10 @@
+.node-version
+node_modules
+yarn-*.log
+tmp
+coverage
+lib
+es
+build
+.vagrant
+*-console.log

@@ -1,0 +1,58 @@
+{
+  "name": "node-linux-cec",
+  "version": "1.0.0",
+  "description": "Linux CEC bindings for Node.js",
+  "keywords": [
+    "cec",
+    "hdmi"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/xdissent/node-linux-cec",
+  "bugs": "https://github.com/xdissent/node-linux-cec/issues",
+  "repository": "github:xdissent/node-linux-cec",
+  "author": "Greg Thornton <xdissent@me.com> (https://xdissent.com)",
+  "main": "lib/index.js",
+  "module": "es/index.js",
+  "files": [
+    "binding.gyp",
+    "lib",
+    "es",
+    "src/*.cc",
+    "src/*.h"
+  ],
+  "engines": {
+    "node": ">=10.7.0"
+  },
+  "scripts": {
+    "clean": "rm -rf lib es coverage build",
+    "build": "./build.sh",
+    "install": "node-gyp rebuild",
+    "test": "eslint --max-warnings 0 src && flow check && jest --coverage",
+    "gen": "node gen.js"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.0.0-rc.1",
+    "@babel/core": "^7.0.0-rc.1",
+    "@babel/preset-env": "^7.0.0-rc.1",
+    "@babel/preset-flow": "^7.0.0-rc.1",
+    "babel-core": "^7.0.0-0",
+    "babel-eslint": "^8.2.6",
+    "babel-jest": "^23.4.2",
+    "eslint": "^4.19.1",
+    "eslint-config-prettier": "^2.10.0",
+    "eslint-config-react-app": "3.0.0-next.3e165448",
+    "eslint-plugin-flowtype": "^2.50.0",
+    "eslint-plugin-import": "^2.14.0",
+    "eslint-plugin-jsx-a11y": "^6.1.1",
+    "eslint-plugin-prettier": "^2.6.2",
+    "eslint-plugin-react": "^7.11.1",
+    "flow-bin": "^0.79.1",
+    "flow-typed": "^2.5.1",
+    "jest": "^23.5.0",
+    "prettier": "^1.14.2"
+  },
+  "dependencies": {
+    "bindings": "^1.3.0",
+    "node-addon-api": "^1.4.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "extends": ["react-app", "prettier", "prettier/flowtype"],
+  "plugins": ["prettier"],
+  "rules": {"prettier/prettier": "error"},
+  "globals": {"BigInt": true},
+  "overrides": [
+    {
+      "files": ["**/*.flow.js"],
+      "rules": {
+        "no-unused-expressions": 0,
+        "no-unused-vars": 0
+      }
+    }
+  ]
+}
