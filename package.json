@@ -1,6 +1,6 @@
 {
   "name": "node-linux-cec",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Linux CEC bindings for Node.js",
   "keywords": [
     "cec",
