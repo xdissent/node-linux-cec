@@ -995,7 +995,7 @@ Napi::Value OpsVendorCommand(const Napi::CallbackInfo& info) {
   Napi::Object ret = Napi::Object::New(info.Env());
   ret["size"] = SmallInt::New(info.Env(), size);
   if (vendor_cmd == NULL) {
-    ret["vendorCmd"] = info.Env().Undefined();
+    throw Napi::Error::New(info.Env());
   } else {
     Napi::Array vendor_cmd_arr = Napi::Array::New(info.Env());
     uint32_t vendor_cmd_len = (msg.msg + CEC_MAX_MSG_SIZE) - vendor_cmd;
@@ -1032,7 +1032,7 @@ Napi::Value OpsVendorCommandWithId(const Napi::CallbackInfo& info) {
   ret["vendorId"] = Napi::Number::New(info.Env(), vendor_id);
   ret["size"] = SmallInt::New(info.Env(), size);
   if (vendor_cmd == NULL) {
-    ret["vendorCmd"] = info.Env().Undefined();
+    throw Napi::Error::New(info.Env());
   } else {
     Napi::Array vendor_cmd_arr = Napi::Array::New(info.Env());
     uint32_t vendor_cmd_len = (msg.msg + CEC_MAX_MSG_SIZE) - vendor_cmd;
@@ -1066,7 +1066,7 @@ Napi::Value OpsVendorRemoteButtonDown(const Napi::CallbackInfo& info) {
   Napi::Object ret = Napi::Object::New(info.Env());
   ret["size"] = SmallInt::New(info.Env(), size);
   if (rc_code == NULL) {
-    ret["rcCode"] = info.Env().Undefined();
+    throw Napi::Error::New(info.Env());
   } else {
     Napi::Array rc_code_arr = Napi::Array::New(info.Env());
     uint32_t rc_code_len = (msg.msg + CEC_MAX_MSG_SIZE) - rc_code;
@@ -1327,11 +1327,16 @@ Napi::Value MsgReportShortAudioDescriptor(const Napi::CallbackInfo& info) {
 Napi::Value OpsReportShortAudioDescriptor(const Napi::CallbackInfo& info) {
   cec_msg msg = info[0].As<Msg>();
   __u8 num_descriptors = 0;
-  __u32 descriptors = 0;
-  cec_ops_report_short_audio_descriptor(&msg, &num_descriptors, &descriptors);
+  __u32 descriptors[CEC_MAX_MSG_SIZE] = {0};
+  cec_ops_report_short_audio_descriptor(&msg, &num_descriptors, descriptors);
   Napi::Object ret = Napi::Object::New(info.Env());
   ret["numDescriptors"] = SmallInt::New(info.Env(), num_descriptors);
-  ret["descriptors"] = Napi::Number::New(info.Env(), descriptors);
+  Napi::Array descriptors_arr = Napi::Array::New(info.Env());
+  uint32_t descriptors_i;
+  for (descriptors_i = 0; descriptors_i < CEC_MAX_MSG_SIZE; descriptors_i++)
+    descriptors_arr[descriptors_i] =
+        Napi::Number::New(info.Env(), descriptors[descriptors_i]);
+  ret["descriptors"] = descriptors_arr;
   return ret;
 }
 
@@ -1363,14 +1368,26 @@ Napi::Value MsgRequestShortAudioDescriptor(const Napi::CallbackInfo& info) {
 Napi::Value OpsRequestShortAudioDescriptor(const Napi::CallbackInfo& info) {
   cec_msg msg = info[0].As<Msg>();
   __u8 num_descriptors = 0;
-  __u8 audio_format_id = 0;
-  __u8 audio_format_code = 0;
+  __u8 audio_format_id[CEC_MAX_MSG_SIZE] = {0};
+  __u8 audio_format_code[CEC_MAX_MSG_SIZE] = {0};
   cec_ops_request_short_audio_descriptor(&msg, &num_descriptors,
-                                         &audio_format_id, &audio_format_code);
+                                         audio_format_id, audio_format_code);
   Napi::Object ret = Napi::Object::New(info.Env());
   ret["numDescriptors"] = SmallInt::New(info.Env(), num_descriptors);
-  ret["audioFormatId"] = SmallInt::New(info.Env(), audio_format_id);
-  ret["audioFormatCode"] = SmallInt::New(info.Env(), audio_format_code);
+  Napi::Array audio_format_id_arr = Napi::Array::New(info.Env());
+  uint32_t audio_format_id_i;
+  for (audio_format_id_i = 0; audio_format_id_i < CEC_MAX_MSG_SIZE;
+       audio_format_id_i++)
+    audio_format_id_arr[audio_format_id_i] =
+        SmallInt::New(info.Env(), audio_format_id[audio_format_id_i]);
+  ret["audioFormatId"] = audio_format_id_arr;
+  Napi::Array audio_format_code_arr = Napi::Array::New(info.Env());
+  uint32_t audio_format_code_i;
+  for (audio_format_code_i = 0; audio_format_code_i < CEC_MAX_MSG_SIZE;
+       audio_format_code_i++)
+    audio_format_code_arr[audio_format_code_i] =
+        SmallInt::New(info.Env(), audio_format_code[audio_format_code_i]);
+  ret["audioFormatCode"] = audio_format_code_arr;
   return ret;
 }
 

@@ -10,6 +10,10 @@ const prettier = require('prettier')
 const s2p = s => s.replace(/(?:^|_+)([a-zA-Z0-9])/g, (_, l) => l.toUpperCase())
 const s2c = s => s.replace(/_+([a-zA-Z0-9])/g, (_, l) => l.toUpperCase())
 
+const OPS_ARRAYS = ['descriptors', 'audio_format_id', 'audio_format_code']
+
+const OPS_NULLABLE = ['rc_profile', 'dev_features']
+
 const formatJs = async (name, src) =>
   // $FlowFixMe:
   prettier.format(
@@ -44,57 +48,72 @@ const writeJs = async (name, src) =>
 const writeCpp = async (name, src) =>
   writeFile(name, await formatCpp(name, src), 'utf8')
 
-const cecType = type => ({
+const cecType = (type, ptype = s2p(type.replace('cec_', ''))) => ({
   msg: {
-    def: (name, value) =>
-      `${type} ${name} = ${value}.As<${s2p(type.replace('cec_', ''))}>();`,
-    call: name => `&${name}`,
-    flow: name => s2p(type.replace('cec_', ''))
+    def: ({name}, value) => `${type} ${name} = ${value}.As<${ptype}>();`,
+    call: ({name}) => `&${name}`,
+    flow: ({name}) => ptype
   },
   ops: {
-    def: name => `${type} ${name} = {};`,
-    call: name => `&${name}`,
-    ret: (name, value) =>
-      `${value} = ${s2p(type.replace('cec_', ''))}::New(info.Env(), ${name});`,
-    flow: name => s2p(type.replace('cec_', ''))
+    def: ({name}) => `${type} ${name} = {};`,
+    call: ({name}) => `&${name}`,
+    ret: ({name}, value) => `${value} = ${ptype}::New(info.Env(), ${name});`,
+    flow: ({name}) => ptype
   }
 })
 
 const numType = (type, vtype) => ({
   msg: {
-    def: (name, value) =>
+    def: ({name}, value) =>
       `${type} ${name} = ${value}.As<${
         name.startsWith('has') ? 'Napi::Boolean' : vtype
       }>();`,
-    call: name => name,
-    flow: name => (name.startsWith('has') ? 'boolean' : 'number')
+    call: ({name}) => name,
+    flow: ({name}) => (name.startsWith('has') ? 'boolean' : 'number')
   }
 })
 
 const numPointerType = (type, vtype) => ({
   msg: {
-    def: (name, value) => `Napi::Array ${name}_arr = ${value}.As<Napi::Array>();
+    def: (
+      {name},
+      value
+    ) => `Napi::Array ${name}_arr = ${value}.As<Napi::Array>();
       uint32_t ${name}_len = ${name}_arr.Length();
       uint32_t ${name}_i;
       ${type} ${name}[${name}_len] = {0};
       for (${name}_i = 0; ${name}_i < ${name}_len; ${name}_i++)
         ${name}[${name}_i] = ${name}_arr.Get(${name}_i).As<${vtype}>();`,
-    call: name => name,
-    flow: name => 'number[]'
+    call: ({name}) => name,
+    flow: ({name}) => 'number[]'
   },
   ops: {
-    def: name => `${type} ${name} = 0;`,
-    call: name => `&${name}`,
-    ret: (name, value) =>
-      `${value} = ${
-        name.startsWith('has') ? 'Napi::Boolean' : vtype
-      }::New(info.Env(), ${name});`,
-    flow: name => (name.startsWith('has') ? 'boolean' : 'number')
+    def: ({name}) =>
+      OPS_ARRAYS.includes(name)
+        ? `${type} ${name}[CEC_MAX_MSG_SIZE] = {0};`
+        : `${type} ${name} = 0;`,
+    call: ({name}) => (OPS_ARRAYS.includes(name) ? name : `&${name}`),
+    ret: ({name}, value) =>
+      OPS_ARRAYS.includes(name)
+        ? `Napi::Array ${name}_arr = Napi::Array::New(info.Env());
+      uint32_t ${name}_i;
+      for (${name}_i = 0; ${name}_i < CEC_MAX_MSG_SIZE; ${name}_i++)
+        ${name}_arr[${name}_i] = ${vtype}::New(info.Env(), ${name}[${name}_i]);
+      ${value} = ${name}_arr;`
+        : `${value} = ${
+            name.startsWith('has') ? 'Napi::Boolean' : vtype
+          }::New(info.Env(), ${name});`,
+    flow: ({name}) =>
+      OPS_ARRAYS.includes(name)
+        ? 'number[]'
+        : name.startsWith('has')
+          ? 'boolean'
+          : 'number'
   },
   set: {
-    def: name => `${type} ${name}[CEC_MAX_MSG_SIZE] = {0};`,
+    def: ({name}) => `${type} ${name}[CEC_MAX_MSG_SIZE] = {0};`,
     ret: (
-      name,
+      {name},
       value
     ) => `Napi::Array ${name}_arr = Napi::Array::New(info.Env());
       uint32_t ${name}_i;
@@ -109,10 +128,14 @@ const TYPES = {
   '__u8*': numPointerType('__u8', 'SmallInt'),
   '__u8**': {
     ops: {
-      def: name => `const __u8* ${name} = NULL;`,
-      call: name => `&${name}`,
-      ret: (name, value) => `if (${name} == NULL) {
-        ${value} = info.Env().Undefined();
+      def: ({name}) => `const __u8* ${name} = NULL;`,
+      call: ({name}) => `&${name}`,
+      ret: ({name}, value) => `if (${name} == NULL) {
+        ${
+          OPS_NULLABLE.includes(name)
+            ? `${value} = info.Env().Undefined();`
+            : 'throw Napi::Error::New(info.Env());'
+        }
       } else {
         Napi::Array ${name}_arr = Napi::Array::New(info.Env());
         uint32_t ${name}_len = (msg.msg + CEC_MAX_MSG_SIZE) - ${name};
@@ -121,7 +144,8 @@ const TYPES = {
           ${name}_arr[${name}_i] = SmallInt::New(info.Env(), ${name}[${name}_i]);
         ${value} = ${name}_arr;
       }`,
-      flow: name => 'number[]'
+      flow: ({name}) =>
+        OPS_NULLABLE.includes(name) ? 'void | number[]' : 'number[]'
     }
   },
   __u16: numType('__u16', 'SmallInt'),
@@ -130,24 +154,24 @@ const TYPES = {
   '__u32*': numPointerType('__u32', 'Napi::Number'),
   int: {
     msg: {
-      def: (name, value) => `int ${name} = ${value}.As<Napi::Boolean>();`,
-      call: name => name,
-      flow: name => 'boolean'
+      def: ({name}, value) => `int ${name} = ${value}.As<Napi::Boolean>();`,
+      call: ({name}) => name,
+      flow: ({name}) => 'boolean'
     }
   },
   'char*': {
     msg: {
-      def: (name, value) =>
+      def: ({name}, value) =>
         `std::string ${name} = ${value}.As<Napi::String>();`,
-      call: name => `${name}.c_str()`,
-      flow: name => 'string'
+      call: ({name}) => `${name}.c_str()`,
+      flow: ({name}) => 'string'
     },
     ops: {
-      def: name => `char ${name}[CEC_MAX_MSG_SIZE] = {0};`,
-      call: name => `${name}`,
-      ret: (name, value) =>
+      def: ({name}) => `char ${name}[CEC_MAX_MSG_SIZE] = {0};`,
+      call: ({name}) => `${name}`,
+      ret: ({name}, value) =>
         `${value} = Napi::String::New(info.Env(), ${name});`,
-      flow: name => 'string'
+      flow: ({name}) => 'string'
     }
   },
   'cec_msg*': cecType('cec_msg'),
@@ -178,7 +202,7 @@ const findConstants = src =>
 const parseArg = arg => {
   const name = arg.replace(/^.*\s+\**(\w+)$/, '$1')
   const type = arg.replace(/^(?:\w+\s+)*(\w+)\s+(\**)\w+$/, '$1$2')
-  return {name, type}
+  return {name, type, cname: s2c(name), const: arg.includes('const ')}
 }
 
 const parseSig = sig => {
@@ -189,6 +213,8 @@ const parseSig = sig => {
   const [ret, name] = retName.split(/\s+/)
   return {
     name,
+    cname: s2c(name.replace(/^cec_/, '')),
+    pname: s2p(name.replace(/^cec_/, '')),
     ret,
     args: args.map(parseArg)
   }
@@ -207,81 +233,75 @@ const findSigs = src =>
     )
     .map(parseSig)
 
-const funcSig = ({name, args}) =>
-  `Napi::Value ${s2p(
-    name.replace(/^cec_/, '')
-  )}(const Napi::CallbackInfo& info)`
+const funcSig = ({pname}) =>
+  `Napi::Value ${pname}(const Napi::CallbackInfo& info)`
 
 const funcDef = fn => `${funcSig(fn)};`
 
-const funcExp = fn =>
-  `cec.Set(Napi::String::New(env, "${s2c(
-    fn.name.replace(/^cec_/, '')
-  )}"), Napi::Function::New(env, ${s2p(fn.name.replace(/^cec_/, ''))}));`
+const funcExp = ({cname, pname}) =>
+  `cec.Set(Napi::String::New(env, "${cname}"), Napi::Function::New(env, ${pname}));`
 
 const msgFuncImpl = fn => `${funcSig(fn)} {
-  ${fn.args
-    .map((a, i) => TYPES[a.type].msg.def(a.name, `info[${i}]`))
-    .join('\n  ')}
-  ${fn.name}(${fn.args.map(a => TYPES[a.type].msg.call(a.name)).join(', ')});
+  ${fn.args.map((a, i) => TYPES[a.type].msg.def(a, `info[${i}]`)).join('\n')}
+  ${fn.name}(${fn.args.map(a => TYPES[a.type].msg.call(a)).join(', ')});
   return Msg::New(info.Env(), msg);
 }
 `
 
 const msgFuncFlow = fn =>
-  `export const ${s2c(fn.name.replace(/^cec_/, ''))}: (${fn.args
-    .map(a => `${s2c(a.name)}: ${TYPES[a.type].msg.flow(a.name)}`)
-    .join(', ')}) => Msg = cec.${s2c(fn.name.replace(/^cec_/, ''))}`
+  `export const ${fn.cname}: (${fn.args
+    .map(a => `${a.cname}: ${TYPES[a.type].msg.flow(a)}`)
+    .join(', ')}) => Msg = cec.${fn.cname}`
 
 const getFuncImpl = fn => `${funcSig(fn)} {
-  ${TYPES[fn.args[0].type].msg.def(fn.args[0].name, `info[0]`)}
-  ${TYPES[fn.args[1].type].ops.def(fn.args[1].name)}
-  ${fn.name}(${fn.args.map(a => TYPES[a.type].msg.call(a.name)).join(', ')});
-  ${TYPES[fn.args[1].type].ops.ret(fn.args[1].name, 'Napi::Value ret')}
+  ${TYPES[fn.args[0].type].msg.def(fn.args[0], `info[0]`)}
+  ${TYPES[fn.args[1].type].ops.def(fn.args[1])}
+  ${fn.name}(${fn.args.map(a => TYPES[a.type].msg.call(a)).join(', ')});
+  ${TYPES[fn.args[1].type].ops.ret(fn.args[1], 'Napi::Value ret')}
   return ret;
 }
 `
 
 const getFuncFlow = fn =>
-  `export const ${s2c(fn.name.replace(/^cec_/, ''))}: (${s2c(
-    fn.args[0].name
-  )}: ${TYPES[fn.args[0].type].msg.flow(fn.args[0].name)}) => ${TYPES[
-    fn.args[1].type
-  ].msg.flow(fn.args[1].name)} = cec.${s2c(fn.name.replace(/^cec_/, ''))}`
+  `export const ${fn.cname}: (${fn.args[0].cname}: ${TYPES[
+    fn.args[0].type
+  ].msg.flow(fn.args[0])}) => ${TYPES[fn.args[1].type].msg.flow(
+    fn.args[1]
+  )} = cec.${fn.cname}`
 
 const setFuncImpl = fn => `${funcSig(fn)} {
-  ${TYPES[fn.args[0].type].set.def(fn.args[0].name)}
-  ${TYPES[fn.args[1].type].msg.def(fn.args[1].name, `info[0]`)}
-  ${fn.name}(${fn.args.map(a => TYPES[a.type].msg.call(a.name)).join(', ')});
-  ${TYPES[fn.args[0].type].set.ret(fn.args[0].name, 'Napi::Value ret')}
+  ${TYPES[fn.args[0].type].set.def(fn.args[0])}
+  ${TYPES[fn.args[1].type].msg.def(fn.args[1], `info[0]`)}
+  ${fn.name}(${fn.args.map(a => TYPES[a.type].msg.call(a)).join(', ')});
+  ${TYPES[fn.args[0].type].set.ret(fn.args[0], 'Napi::Value ret')}
   return ret;
 }
 `
 
 const setFuncFlow = fn =>
-  `export const ${s2c(fn.name.replace(/^cec_/, ''))}: (${s2c(
-    fn.args[1].name
-  )}: ${TYPES[fn.args[1].type].msg.flow(fn.args[1].name)}) => ${TYPES[
-    fn.args[0].type
-  ].msg.flow(fn.args[0].name)} = cec.${s2c(fn.name.replace(/^cec_/, ''))}`
+  `export const ${fn.cname}: (${fn.args[1].cname}: ${TYPES[
+    fn.args[1].type
+  ].msg.flow(fn.args[1])}) => ${TYPES[fn.args[0].type].msg.flow(
+    fn.args[0]
+  )} = cec.${fn.cname}`
 
 const opsFuncImpl = fn => `${funcSig(fn)} {
   cec_msg msg = info[0].As<Msg>();
   ${fn.args
     .slice(1)
-    .map(a => TYPES[a.type].ops.def(a.name))
+    .map(a => TYPES[a.type].ops.def(a))
     .join('\n  ')}
   ${fn.name}(&msg, ${fn.args
   .slice(1)
-  .map(a => TYPES[a.type].ops.call(a.name))
+  .map(a => TYPES[a.type].ops.call(a))
   .join(', ')});
   ${
     fn.args.length === 2
-      ? `${TYPES[fn.args[1].type].ops.ret(fn.args[1].name, 'Napi::Value ret')}`
+      ? `${TYPES[fn.args[1].type].ops.ret(fn.args[1], 'Napi::Value ret')}`
       : `Napi::Object ret = Napi::Object::New(info.Env());
   ${fn.args
     .slice(1)
-    .map(a => TYPES[a.type].ops.ret(a.name, `ret["${s2c(a.name)}"]`))
+    .map(a => TYPES[a.type].ops.ret(a, `ret["${a.cname}"]`))
     .join('\n')}`
   }
   return ret;
@@ -289,34 +309,34 @@ const opsFuncImpl = fn => `${funcSig(fn)} {
 `
 
 const opsFuncFlow = fn =>
-  `export const ${s2c(fn.name.replace(/^cec_/, ''))}: (${fn.args
+  `export const ${fn.cname}: (${fn.args
     .slice(0, 1)
-    .map(a => `${s2c(a.name)}: ${TYPES[a.type].ops.flow(a.name)}`)
+    .map(a => `${a.cname}: ${TYPES[a.type].ops.flow(a)}`)
     .join(', ')}) => ${
     fn.args.length === 2
-      ? TYPES[fn.args[1].type].ops.flow(fn.args[1].name)
+      ? TYPES[fn.args[1].type].ops.flow(fn.args[1])
       : `{
       ${fn.args
         .slice(1)
-        .map(a => `${s2c(a.name)}: ${TYPES[a.type].ops.flow(a.name)}`)
+        .map(a => `${a.cname}: ${TYPES[a.type].ops.flow(a)}`)
         .join(',\n')}
     }`
-  } = cec.${s2c(fn.name.replace(/^cec_/, ''))}`
+  } = cec.${fn.cname}`
 
 const valFuncImpl = (fn, type) => `${funcSig(fn)} {
     ${fn.args
-      .map((a, i) => TYPES[a.type].msg.def(a.name, `info[${i}]`))
+      .map((a, i) => TYPES[a.type].msg.def(a, `info[${i}]`))
       .join('\n  ')}
     return ${type}::New(info.Env(), ${fn.name}(${fn.args
-  .map(a => TYPES[a.type].msg.call(a.name))
+  .map(a => TYPES[a.type].msg.call(a))
   .join(', ')}));
   }
   `
 
 const valFuncFlow = (fn, type) =>
-  `export const ${s2c(fn.name.replace(/^cec_/, ''))}: (${fn.args
-    .map(a => `${s2c(a.name)}: ${TYPES[a.type].msg.flow(a.name)}`)
-    .join(', ')}) => ${type} = cec.${s2c(fn.name.replace(/^cec_/, ''))}`
+  `export const ${fn.cname}: (${fn.args
+    .map(a => `${a.cname}: ${TYPES[a.type].msg.flow(a)}`)
+    .join(', ')}) => ${type} = cec.${fn.cname}`
 
 const msgInitImpl = fn => `${funcSig(fn)} {
   cec_msg msg;

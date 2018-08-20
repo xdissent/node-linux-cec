@@ -321,8 +321,8 @@ export const opsReportFeatures: (
 ) => {
   cecVersion: number,
   allDeviceTypes: number,
-  rcProfile: number[],
-  devFeatures: number[]
+  rcProfile: void | number[],
+  devFeatures: void | number[]
 } = cec.opsReportFeatures
 export const msgGiveFeatures: (msg: Msg, reply: boolean) => Msg =
   cec.msgGiveFeatures
@@ -518,7 +518,7 @@ export const opsReportShortAudioDescriptor: (
   msg: Msg
 ) => {
   numDescriptors: number,
-  descriptors: number
+  descriptors: number[]
 } = cec.opsReportShortAudioDescriptor
 export const msgRequestShortAudioDescriptor: (
   msg: Msg,
@@ -531,8 +531,8 @@ export const opsRequestShortAudioDescriptor: (
   msg: Msg
 ) => {
   numDescriptors: number,
-  audioFormatId: number,
-  audioFormatCode: number
+  audioFormatId: number[],
+  audioFormatCode: number[]
 } = cec.opsRequestShortAudioDescriptor
 export const msgSetAudioRate: (msg: Msg, audioRate: number) => Msg =
   cec.msgSetAudioRate
