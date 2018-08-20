@@ -121,7 +121,7 @@ const TYPES = {
           ${name}_arr[${name}_i] = SmallInt::New(info.Env(), ${name}[${name}_i]);
         ${value} = ${name}_arr;
       }`,
-      flow: name => 'number'
+      flow: name => 'number[]'
     }
   },
   __u16: numType('__u16', 'SmallInt'),

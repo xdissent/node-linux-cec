@@ -321,8 +321,8 @@ export const opsReportFeatures: (
 ) => {
   cecVersion: number,
   allDeviceTypes: number,
-  rcProfile: number,
-  devFeatures: number
+  rcProfile: number[],
+  devFeatures: number[]
 } = cec.opsReportFeatures
 export const msgGiveFeatures: (msg: Msg, reply: boolean) => Msg =
   cec.msgGiveFeatures
@@ -404,7 +404,7 @@ export const opsVendorCommand: (
   msg: Msg
 ) => {
   size: number,
-  vendorCmd: number
+  vendorCmd: number[]
 } = cec.opsVendorCommand
 export const msgVendorCommandWithId: (
   msg: Msg,
@@ -417,7 +417,7 @@ export const opsVendorCommandWithId: (
 ) => {
   vendorId: number,
   size: number,
-  vendorCmd: number
+  vendorCmd: number[]
 } = cec.opsVendorCommandWithId
 export const msgVendorRemoteButtonDown: (
   msg: Msg,
@@ -428,7 +428,7 @@ export const opsVendorRemoteButtonDown: (
   msg: Msg
 ) => {
   size: number,
-  rcCode: number
+  rcCode: number[]
 } = cec.opsVendorRemoteButtonDown
 export const msgVendorRemoteButtonUp: (msg: Msg) => Msg =
   cec.msgVendorRemoteButtonUp
