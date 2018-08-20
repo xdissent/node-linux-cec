@@ -81,24 +81,24 @@ export type OpChannelData = {
 export type OpDigitalServiceId = {
   serviceIdMethod: number,
   digBcastSystem: number,
-  arib: OpAribData,
-  atsc: OpAtscData,
-  dvb: OpDvbData,
-  channel: OpChannelData
+  arib?: OpAribData,
+  atsc?: OpAtscData,
+  dvb?: OpDvbData,
+  channel?: OpChannelData
 }
 
 export type OpRecordSrc = {
   type: number,
-  digital: OpDigitalServiceId,
-  analog: {
+  digital?: OpDigitalServiceId,
+  analog?: {
     anaBcastType: number,
     anaFreq: number,
     bcastSystem: number
   },
-  extPlug: {
+  extPlug?: {
     plug: number
   },
-  extPhysAddr: {
+  extPhysAddr?: {
     physAddr: number
   }
 }
@@ -107,8 +107,8 @@ export type OpTunerDeviceInfo = {
   recFlag: number,
   tunerDisplayInfo: number,
   isAnalog: boolean,
-  digital: OpDigitalServiceId,
-  analog: {
+  digital?: OpDigitalServiceId,
+  analog?: {
     anaBcastType: number,
     anaFreq: number,
     bcastSystem: number
@@ -118,11 +118,11 @@ export type OpTunerDeviceInfo = {
 export type OpUiCommand = {
   uiCmd: number,
   hasOptArg: boolean,
-  channelIdentifier: OpChannelData,
-  uiBroadcastType: number,
-  uiSoundPresentationControl: number,
-  playMode: number,
-  uiFunctionMedia: number,
-  uiFunctionSelectAvInput: number,
-  uiFunctionSelectAudioInput: number
+  channelIdentifier?: OpChannelData,
+  uiBroadcastType?: number,
+  uiSoundPresentationControl?: number,
+  playMode?: number,
+  uiFunctionMedia?: number,
+  uiFunctionSelectAvInput?: number,
+  uiFunctionSelectAudioInput?: number
 }
