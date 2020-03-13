@@ -23,6 +23,9 @@
   "engines": {
     "node": ">=10.7.0"
   },
+  "os": [
+    "linux"
+  ],
   "scripts": {
     "clean": "rm -rf lib es coverage build",
     "build": "./build.sh",
